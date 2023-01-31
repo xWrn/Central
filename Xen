@@ -1,0 +1,759 @@
+local RunService = game:GetService("RunService")
+-- ui shit 
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("Central  - Territory Hub", "Serpent")
+
+
+local general = Window:NewTab("Main")
+local sliders = general:NewSection("Gen 1")
+-- variables
+local players = game:GetService("Players")
+local player = players.LocalPlayer
+local uppertorso = player.Character.UpperTorso
+local sound = Instance.new("Sound", game.Workspace)
+local camera = workspace.CurrentCamera
+
+local Settings = settings()
+
+local CurrentHoop
+local LocalPlayer = game.Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local tweenservice = game:GetService("TweenService")
+local settings2 = require(ReplicatedStorage.Modules.Settings)
+local tweeninfo = TweenInfo.new(
+	0.5, 
+	Enum.EasingStyle.Linear, 
+	Enum.EasingDirection.InOut, 
+	0, 
+	false, 
+	0
+)
+
+local actions = game:GetService("ReplicatedStorage").Events.Player.Actions
+
+local ankles_c = 0
+local fall_c = 0
+
+--functionality
+local function nosit()
+	pcall(function()
+		for _, c in pairs(getconnections(actions.OnClientEvent)) do
+			local constants = debug.getconstants(c.Function)
+			ankles_c = table.find(constants, "Ankles")
+			fall_c = table.find(constants, "Fall")
+
+			debug.setconstant(c.Function, table.find(constants, "Ankles"), "")
+			debug.setconstant(c.Function, table.find(constants, "Fall"), "")
+		end
+	end)
+end
+
+local function nositdisabler()
+	pcall(function()
+		for _, c in pairs(getconnections(actions.OnClientEvent)) do
+			local constants = debug.getconstants(c.Function)
+			debug.setconstant(c.Function, ankles_c, "Ankles")
+			debug.setconstant(c.Function, fall_c, "Fall")
+		end
+	end)
+end
+
+local function ballClones()
+	for _, v in pairs(workspace.Balls:GetChildren()) do
+		if v:FindFirstChild("ClonedBall") then
+			return
+		end
+		local clone = v:Clone()
+		clone.Name = "ClonedBall"
+		clone.Anchored = true
+		clone.Transparency = 0
+		clone.Parent = v
+		clone.Size = Vector3.new(1.32, 1.32, 1.32)
+		clone.CanCollide = false
+		RunService:BindToRenderStep("ballframe", Enum.RenderPriority.Camera.Value, function()
+			clone.CFrame = v.CFrame
+		end)
+	end
+end
+
+local function ballsizehandler(size) -- AYO THIS IS SUPER SUS
+	if uppertorso:FindFirstChild("Ball") then
+		for _, v in pairs(workspace.Balls:GetChildren()) do
+			v.Size = Vector3.new(1.32, 1.32, 1.32)
+			v.Transparency = 1
+		end
+	else
+		for _, v in pairs(workspace.Balls:GetChildren()) do
+			v.Size = Vector3.new(size, size, size)
+			v.Transparency = 1
+		end
+	end
+end
+
+local function deleteclones()
+	for _, v in pairs(workspace.Balls:GetChildren()) do
+		local cb = v:FindFirstChild("ClonedBall")
+		if pcall(function() RunService:UnbindFromRenderStep("ballframe") end) then RunService:UnbindFromRenderStep("ballframe") end
+		cb:Destroy()
+	end
+end
+
+local function rebound2(v1)
+	task.spawn(function()
+		for i = 1, v1 do
+			local args = {[1] = "rebound"}
+			game:GetService("ReplicatedStorage").Events.Player.Actions:FireServer(unpack(args))
+			wait(1)
+		end
+	end)
+end
+
+local function tween()
+	CurrentHoop = settings2:GetHoop(LocalPlayer, workspace.Hoops:GetDescendants())
+	local tweentopart = tweenservice:Create(LocalPlayer.Character.HumanoidRootPart, tweeninfo, {CFrame = CurrentHoop.Extra.Backboard.CFrame})
+	tweentopart:Play()
+	tweentopart.Completed:Wait()
+end
+
+local function pump()
+	local args = {[1] = "Pump"}
+	game:GetService("ReplicatedStorage").Events.Player.Actions:FireServer(unpack(args))
+end
+
+local function setupShot()
+	local args = {
+		[1] = "shotType",
+		[2] = {
+			["Ac"] = {
+				["Dunk"] = false,
+				["Posting"] = false,
+				["ShootingEnabled"] = true,
+				["NoMov"] = false,
+				["PickupBall"] = false,
+				["Shooting"] = true,
+				["Blocking"] = false,
+				["catchPass"] = false,
+				["Dead"] = false,
+				["DribbleAnim"] = false,
+				["Falling"] = false,
+				["Lateral"] = false,
+				["Handles"] = false,
+				["Pivot"] = false,
+				["walkOnCourt"] = false,
+				["HideChars"] = false,
+				["NoRun"] = false,
+				["Running"] = false,
+				["PumpFake"] = false,
+				["ShotBall"] = false,
+				["Dropball"] = false,
+				["brokenAnkles"] = false,
+				["Steal"] = false,
+				["Rebound"] = false,
+				["Guarding"] = false,
+				["PostMove"] = false,
+				["hasBall"] = true,
+				["Pick"] = false,
+				["hopStep"] = false,
+				["offDribble"] = false,
+				["Passing"] = false,
+				["CrossOver"] = false,
+				["withBallMovement"] = false
+			},
+			["Con"] = "reg",
+			["Co"] = {
+				["shift"] = false,
+				["shiftHold"] = false,
+				["Alley"] = false,
+				["Passing"] = false
+			},
+			["vel"] = -math.huge
+		}
+	}
+
+	game:GetService("ReplicatedStorage").Events.Player.Ball:InvokeServer(unpack(args))
+	game:GetService("ReplicatedStorage").Events.Player.Actions:FireServer("addPower", {})
+	game:GetService("ReplicatedStorage").Events.Player.Ball:InvokeServer("stop")
+end
+
+-- workspace.Balls.ChildAdded:Connect(deleteclones)
+
+-- general tab
+-- c def paint is 68
+-- pf pure stretch default ball speed = 71
+sliders:NewSlider("speed with ball", "", 155, 71, function(num) 
+	if pcall(function() RunService:UnbindFromRenderStep("ballspeed") end) then RunService:UnbindFromRenderStep("ballspeed") end
+	RunService:BindToRenderStep("ballspeed", Enum.RenderPriority.Camera.Value, function()
+		game:GetService("Players").LocalPlayer.Info.Stats.SpeedBall.Value = num
+	end)  
+end)
+
+sliders:NewSlider("defensive speed", "changes your speed whiled defending", 90, 71, function(num)
+	if pcall(function() RunService:UnbindFromRenderStep("defspeed") end) then RunService:UnbindFromRenderStep("defspeed") end
+	RunService:BindToRenderStep("defspeed", Enum.RenderPriority.Camera.Value, function()
+		game:GetService("Players").LocalPlayer.Info.Stats.DefensiveSpeed.Value = num
+	end)
+end)
+
+sliders:NewTextBox("shootspeed", "do not go over 1.25 shoot speed", function(num)
+	if pcall(function() RunService:UnbindFromRenderStep("shootspeed") end) then RunService:UnbindFromRenderStep("shootspeed") end
+	RunService:BindToRenderStep("shootspeed", Enum.RenderPriority.Camera.Value, function()
+		local character = player.Character or player.CharacterAdded:Wait()
+		local humanoid = character:WaitForChild("Humanoid")
+		function fucku()
+			for i, v in pairs(humanoid:GetPlayingAnimationTracks()) do
+				local animationid = v.Animation.AnimationId
+				if animationid == "rbxassetid://5099677897" or animationid == "rbxassetid://5463881468" then
+					return true
+				end
+			end
+		end
+		if fucku() then
+			for i, v in pairs(humanoid:GetPlayingAnimationTracks()) do
+				v:AdjustSpeed(num)
+			end
+		else
+			for i, v in pairs(humanoid:GetPlayingAnimationTracks()) do
+				v:AdjustSpeed(1)
+			end
+		end
+	end)
+end)
+
+workspace.Balls.ChildAdded:Connect(deleteclones)
+-- hbe tab
+
+sliders:NewButton("Big Ball Transparency ", "ButtonInfo", function()
+    print("Hello")
+    for _, v in pairs (game.workspace.Balls:GetDescendants())do
+if v.Name == 'Ball' then 
+v.Transparency = 0.4
+end
+end
+
+for _,balls in pairs(game.Workspace.Balls:GetChildren()) do
+        if balls.Name == "Ball" then
+            balls.Size = Vector3.new(5.32,5.32,5.32)
+        end
+    end
+end)
+  
+sliders:NewButton("Normal Ball", "ButtonInfo", function()
+    print("Wrn did this")
+    for _, v in pairs (game.workspace.Balls:GetDescendants())do
+if v.Name == 'Ball' then 
+v.Transparency = 0
+end
+end
+
+for _,balls in pairs(game.Workspace.Balls:GetChildren()) do
+        if balls.Name == "Ball" then
+            balls.Size = Vector3.new(1.32,1.32,1.32)
+        end
+    end
+end)
+
+local Tab = Window:NewTab("Gen")
+local Section = Tab:NewSection("Gen")
+
+local yellow = Color3.fromRGB(255, 241, 76)
+
+local function addHighlights()
+	for i, v in pairs(workspace.Balls:GetChildren()) do
+		if v.ClonedBall:FindFirstChild("Highlight") then return end
+		local a = Instance.new("Highlight")
+		a.Parent = v.ClonedBall
+		a.FillColor = yellow
+		a.Enabled = false
+	end
+end
+
+local function enableWhenBlockable()
+	for i, v in pairs(workspace.Balls:GetChildren()) do
+		if v.ClonedBall:FindFirstChild("Highlight") then
+			if v.Blockable.Value then
+				v.ClonedBall.Highlight.Enabled = true
+			elseif v.Blockable.Value == false then
+				v.ClonedBall.Highlight.Enabled = false
+			end
+		end
+	end
+end
+
+local function destroyHighlights()
+	for i, v in pairs(workspace.Balls:GetChildren()) do
+		local highlight = v:FindFirstChild("Highlight")
+		if highlight then
+			highlight:Destroy()
+		end
+	end
+end
+
+Section:NewButton("Boost Stats", "Boost your Attributes()", function()
+	print("Clicked")
+	game:GetService("Players").LocalPlayer.Info.Stats.Moving.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Fade.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Mid.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Long.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Layup.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Floater.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Speed.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.SpeedBall.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Steal.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Passing.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Contest.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Agility.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Handles.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Dunk.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.DefensiveSpeed.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.PostHook.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.PostFade.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Rebound.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.Strength.Value = 9e9
+game:GetService("Players").LocalPlayer.Info.Stats.LongLayup.Value = 9e9
+ end)
+
+ Section:NewButton("No Out", "u can't go out", function()
+	print("Clicked")
+	local oob6 = workspace.Stuff.Courts["Court_6"].Court
+	local oob3 = workspace.Stuff.Courts["Court_3"].Court
+	local oob4 = workspace.Stuff.Courts["Court_4"].Court
+	local oob5 = workspace.Stuff.Courts["Court_5"].Court
+	local oob1 = workspace.Stuff.Courts["Court_2"].Court
+	local oob2 = workspace.Stuff.Courts["Court_1"].Court
+
+	oob1.oob:Destroy() 
+	oob2.oob:Destroy()
+	oob3.oob:Destroy()
+	oob4.oob:Destroy()
+	oob5.oob:Destroy()            
+	oob6.oob:Destroy()
+ end)
+
+ Section:NewButton("AIMBOT", "HOLD IT ALL THE WAY", function()
+	print("Clicked")
+	local power = game:GetService("Players").LocalPlayer.Info.Profile.ShotPower
+ 
+ power:GetPropertyChangedSignal("Value"):Connect(function()
+    if power.Value >= 26.8 then
+	   keyrelease(0x20)
+	   keyrelease(0x45)
+    end
+ end)
+ end)
+
+ local reboundpage = Window:NewTab("more")
+local rebound = reboundpage:NewSection("MAIN")
+
+rebound:NewKeybind("ghost rebound", "ghost rebound(try to catch a pass)", Enum.KeyCode.RightSuper, function()
+	local args = {
+		[1] = "rebound"
+	}
+
+	game:GetService("ReplicatedStorage").Events.Player.Actions:FireServer(unpack(args))
+
+end)
+
+rebound:NewKeybind("ghost dribble", "Dribble without doing anything dribble move", Enum.KeyCode.RightSuper, function()
+	local args = {
+		[1] = "cross"
+	}
+
+	game:GetService("ReplicatedStorage").Events.Player.Actions:FireServer(unpack(args))
+end)
+
+rebound:NewKeybind("ghost reach", "ghost reach", Enum.KeyCode.RightSuper, function()
+	local args = {
+		[1] = "steal",
+		[2] = "Right"
+	}
+
+	game:GetService("ReplicatedStorage").Events.Player.Actions:FireServer(unpack(args))
+
+end)
+
+rebound:NewButton("bump stun remover", "removes stun from bump REJOIN TO TURN OFF", function()
+	if pcall(function() RunService:UnbindFromRenderStep("pushback") end) then RunService:UnbindFromRenderStep("pushback") end
+	RunService:BindToRenderStep("pushback", Enum.RenderPriority.Camera.Value, function()
+		game:GetService("Players").LocalPlayer.Backpack.Actions.Pushback.Value = false
+	end)
+end)
+
+rebound:NewKeybind("force 0", "OP", Enum.KeyCode.RightSuper, function()
+	setupShot()
+	pump()
+end)
+
+rebound:NewButton("force day", "", function()
+	game:GetService("Lighting").ClockTime = 11.5
+
+	game:GetService("Lighting"):GetPropertyChangedSignal("ClockTime"):Connect(function()
+		game:GetService("Lighting").ClockTime = 11.5
+	end) 
+end)
+
+local characterpage = Window:NewTab("Player")
+local characterpagesection = characterpage:NewSection("DOMAIN")
+
+-- RunService:BindToRenderStep("ballspeed", Enum.RenderPriority.Camera.Value, function()
+characterpagesection:NewButton("hide name", "", function()
+	local character2 = player.Character or player.CharacterAdded:Wait()
+	local nametag = character2.HumanoidRootPart.nameTag
+	nametag.NameTag:Destroy()
+	nametag.Ovr:Destroy()
+	nametag.Title:Destroy()
+	nametag.Logo:Destroy()
+end)
+
+
+characterpagesection:NewButton("remove face", "removes your face", function()
+	local character2 = player.Character or player.CharacterAdded:Wait()
+	local head = character2.Head
+	head.eyeBrow:Destroy()
+	head.eyeColor:Destroy()
+	head.eyeOutline:Destroy()
+	head.Mouth:Destroy()
+end)
+
+
+characterpagesection:NewButton("remove ears", "removes ear", function()
+	local character2 = player.Character or player.CharacterAdded:Wait()
+	local ears = character2.Ears
+	ears.Ear:Destroy()
+	ears.Ear:Destroy()
+end)
+
+characterpagesection:NewButton("remove hair", "remove hair", function()
+	local character2 = player.Character or player.CharacterAdded:Wait()
+	local hair = character2.Hair
+	hair.Handle.AccessoryWeld:Destroy()
+end)
+
+local fpspage = Window:NewTab("fps")
+local fpssection = fpspage:NewSection("FPS BOOST")
+
+fpssection:NewButton("park fps booster", "", function()
+	local destroythis = {
+		workspace.Stuff.Cables,
+		workspace.Stuff.Porter,
+		workspace.Stuff.Fences,
+		workspace.Stuff.DetailedFence,
+		workspace.Stuff.Rack,
+		workspace.Stuff.Buildings,
+		workspace.Stuff.Trees,
+		workspace.Stuff.LightPoles,
+		workspace.Stuff.Lights,
+		workspace.Stuff.Water,
+		workspace.Stuff.Bins,
+		workspace.Stuff.Benches,
+	}
+	for i, v in pairs(destroythis) do
+		v:Destroy()
+	end
+end)
+
+fpssection:NewButton("fps booster", "improves fps", function()
+	local Terrain = workspace:FindFirstChildOfClass('Terrain')
+	local Lighting = game:GetService("Lighting")
+	Terrain.WaterWaveSize = 0
+	Terrain.WaterWaveSpeed = 0
+	Terrain.WaterReflectance = 0
+	Terrain.WaterTransparency = 0
+	Lighting.GlobalShadows = false
+	Lighting.FogEnd = 9e9
+	settings().Rendering.QualityLevel = 1
+	for i,v in pairs(game:GetDescendants()) do
+		if v:IsA("Part") or v:IsA("UnionOperation") or v:IsA("MeshPart") or v:IsA("CornerWedgePart") or v:IsA("TrussPart") then
+			v.Material = "Plastic"
+			v.Reflectance = 0
+		elseif v:IsA("Decal") then
+			v.Transparency = 1
+		elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+			v.Lifetime = NumberRange.new(0)
+		elseif v:IsA("Explosion") then
+			v.BlastPressure = 1
+			v.BlastRadius = 1
+		end
+	end
+	for i,v in pairs(Lighting:GetDescendants()) do
+		if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
+			v.Enabled = false
+		end
+	end
+	workspace.DescendantAdded:Connect(function(child)
+		coroutine.wrap(function()
+			if child:IsA('ForceField') then
+				RunService.Heartbeat:Wait()
+				child:Destroy()
+			elseif child:IsA('Sparkles') then
+				RunService.Heartbeat:Wait()
+				child:Destroy()
+			elseif child:IsA('Smoke') or child:IsA('Fire') then
+				RunService.Heartbeat:Wait()
+				child:Destroy()
+			end
+		end)()
+	end)
+end)
+
+
+
+--stats page
+statCheckUsername = nil
+local statsTab = Window:NewTab("STATS")
+local statsSection = statsTab:NewSection("PLAYER STATS")
+
+wl = statsSection:NewLabel("wins/losses")
+arch = statsSection:NewLabel("build info")
+secondarch = statsSection:NewLabel("second build info")
+
+statsSection:NewTextBox("USERNAME", "the username of the player you want to stat check", function(txt)
+	statCheckUsername = txt
+end)
+
+statsSection:NewButton("check stats", "checks stats", function()
+	player = game.Players:FindFirstChild(statCheckUsername)
+	wins = player.Info.GameStats.W.Value
+	primary = player.Info.Profile.Position.Archetype.Value
+	secondary = player.Info.Profile.Position.SecondArchetype.Value
+	losses = player.Info.GameStats.TotalGames.Value - player.Info.GameStats.W.Value
+	wl:UpdateLabel("wins: " .. tostring(wins) .. " losses: " .. tostring(losses))
+	arch:UpdateLabel("primary arch: " .. primary)
+	secondarch:UpdateLabel(" secondary arch: " .. secondary)
+end)
+
+local Tab = Window:NewTab("realm")
+local Section = Tab:NewSection("Lounge")
+
+Section:NewButton("Super Speed", "Press it 2 or 3 times", function()
+    print("Clicked")
+    IsFirstPerson = false
+ShiftHeld = false
+WHeld = false
+SHeld = false
+AHeld = false
+DHeld = false -- LMFAO
+local gcheck = true
+urspeed = .80 -- The lower it is the faster. So don't worry about it being minus 1
+
+
+function ChangeFaster(inputObject, gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.Minus and gameProcessedEvent == false then        
+urspeed = urspeed - 0.1
+    end
+end
+
+
+
+function ChangeSlower(inputObject, gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.Equals and gameProcessedEvent == false then        
+urspeed = urspeed + 0.1
+    end
+end
+
+
+
+function GChecker(inputObject, gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.K and gameProcessedEvent == false then        
+if gcheck == false then
+gcheck = true
+elseif gcheck == true then
+gcheck = false
+end
+
+    end
+end
+
+game:GetService("UserInputService").InputBegan:connect(GChecker)
+
+
+
+function PressShift(inputObject,gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.LeftShift and gameProcessedEvent == false and gcheck == true then
+        ShiftHeld = true
+    end
+end
+
+function ReleaseShift(inputObject,gameProcessed)
+    if inputObject.KeyCode == Enum.KeyCode.LeftShift then
+        ShiftHeld = false
+    end
+end
+
+
+function PressW(inputObject,gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.W and gameProcessedEvent == false and gcheck == true then
+        WHeld = true
+    end
+end
+
+function ReleaseW(inputObject,gameProcessed)
+    if inputObject.KeyCode == Enum.KeyCode.W then
+        WHeld = false
+    end
+end
+
+function PressS(inputObject,gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.S and gameProcessedEvent == false and gcheck == true then
+        SHeld = true
+    end
+end
+
+function ReleaseS(inputObject,gameProcessed)
+    if inputObject.KeyCode == Enum.KeyCode.S then
+        SHeld = false
+    end
+end
+
+
+function PressA(inputObject,gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.A and gameProcessedEvent == false and gcheck == true then
+        AHeld = true
+    end
+end
+
+function ReleaseA(inputObject,gameProcessed)
+    if inputObject.KeyCode == Enum.KeyCode.A then
+        AHeld = false
+    end
+end
+
+
+function PressD(inputObject,gameProcessedEvent)
+    if inputObject.KeyCode == Enum.KeyCode.D and gameProcessedEvent == false and gcheck == true then
+        DHeld = true
+    end
+end
+
+function ReleaseD(inputObject,gameProcessed)
+    if inputObject.KeyCode == Enum.KeyCode.D then
+        DHeld = false
+    end
+end
+
+function CheckFirst(inputObject,gameProcessed)
+    if inputObject.KeyCode == Enum.UserInputType.MouseWheel then
+        if (player.Character.Head.CFrame.p - workspace.CurrentCamera.CFrame.p).magnitude < 0.6 then
+            IsFirstPerson = true
+	elseif (player.Character.Head.CFrame.p - workspace.CurrentCamera.CFrame.p).magnitude > 0.6 then
+	    IsFirstPerson = false
+        end
+    end
+end
+
+game:GetService("UserInputService").InputBegan:connect(PressShift)
+game:GetService("UserInputService").InputEnded:connect(ReleaseShift)
+
+game:GetService("UserInputService").InputBegan:connect(PressW)
+game:GetService("UserInputService").InputEnded:connect(ReleaseW)
+
+game:GetService("UserInputService").InputBegan:connect(PressS)
+game:GetService("UserInputService").InputEnded:connect(ReleaseS)
+
+game:GetService("UserInputService").InputBegan:connect(PressA)
+game:GetService("UserInputService").InputEnded:connect(ReleaseA)
+
+game:GetService("UserInputService").InputBegan:connect(PressD)
+game:GetService("UserInputService").InputEnded:connect(ReleaseD)
+
+game:GetService("UserInputService").InputChanged:connect(CheckFirst)
+
+game:GetService("UserInputService").InputBegan:connect(ChangeFaster)
+game:GetService("UserInputService").InputBegan:connect(ChangeSlower)
+
+
+game:GetService('RunService').Stepped:connect(function()
+if ShiftHeld == true then
+
+if WHeld == true then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-urspeed)
+end
+
+if SHeld == true then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,urspeed)
+end
+
+if DHeld == true then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(urspeed,0,0)
+end
+
+if AHeld == true then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(-urspeed,0,0)
+end
+
+
+end
+end)
+end)
+
+Section:NewButton("Enable Trail", "Idoit", function()
+    print("Clicked")
+   for _,balls in pairs(game.Workspace.Balls.Ball:GetChildren()) do
+        if balls.Name == "Green" then
+            balls.Enabled = true
+            balls.Lifetime = trailLength
+            balls.MaxLength = 100
+        end
+    end
+    print("done")
+end)
+
+Section:NewSlider("Trail length", "Adjust", 10, 5, function(val)
+print("Enabled")
+trailLength = val
+end)
+
+rebound:NewTextBox("join anyone", "input their username perfectly to join them", function(txt)
+	local args = {
+		[1] = "Join",
+		[2] = {
+			["Name"] = txt
+		}
+	}
+
+	game:GetService("ReplicatedStorage").Events.Player.HandleTeleport:InvokeServer(unpack(args))
+end)
+
+local Section = Tab:NewSection("FOV")
+
+-- https://xheptcofficial.gitbook.io/kavo-library/#creating-textboxes
+Section:NewSlider("FOV", "Hello", 120, 1, function(num)
+    if pcall(function() RunService:UnbindFromRenderStep("ChangeCameraFOV") end) then RunService:UnbindFromRenderStep("ChangeCameraFOV") end
+	RunService:BindToRenderStep("ChangeCameraFOV", Enum.RenderPriority.Camera.Value, function()
+		camera.FieldOfView = num
+	end)
+end)
+
+local Section = Tab:NewSection("Settings")
+
+Section:NewKeybind("Toggle UI", "KeybindInfo", Enum.KeyCode.LeftControl, function()
+	Library:ToggleUI()
+end)
+
+local Section = Tab:NewSection("Max")
+
+local toggled99 = true
+rebound:NewKeybind("auto rebound", "", Enum.KeyCode.RightSuper, function()
+	if toggled99 then
+		rebound2(3)
+		tween()
+		LocalPlayer.Character.HumanoidRootPart.Anchored = true
+		toggled99 = false
+	else
+		LocalPlayer.Character.HumanoidRootPart.Anchored = false
+		toggled99 = true
+	end
+end)
+
+local colors = {
+	SchemeColor = Color3.fromRGB(0,255,255),
+	Background = Color3.fromRGB(0, 0, 0),
+	Header = Color3.fromRGB(0, 0, 0),
+	TextColor = Color3.fromRGB(255,255,255),
+	ElementColor = Color3.fromRGB(20, 20, 20)
+	}
+		
+	for theme, color in pairs(colors) do
+	Section:NewColorPicker(theme, "Change your "..theme, color, function(color3)
+	Library:ChangeColor(theme, color3)
+	end)
+	end
